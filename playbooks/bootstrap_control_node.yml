@@ -1,0 +1,79 @@
+---
+# One-time bootstrap: turn control-node-ubuntu into a working Ansible control node.
+# Run this FROM your laptop after `terraform apply`:
+#
+#   ansible-playbook -i inventories/dev/bootstrap.ini playbooks/bootstrap_control_node.yml
+#
+# It installs Ansible, pushes your SSH key, clones the repo, and drops the
+# teaching inventory in place. After it finishes you SSH into the control node
+# and run the course from there against the workers.
+
+- name: Bootstrap the Ansible control node
+  hosts: control
+  gather_facts: true
+
+  vars:
+    repo_url: "https://github.com/TrainWithShubham/ansible-in-one-shot.git"
+    repo_dest: "/home/{{ ansible_user }}/ansible-in-one-shot"
+    key_src: "~/keys/terra-key-ansible"
+    key_dest: "/home/{{ ansible_user }}/keys/terra-key-ansible"
+
+  tasks:
+    - name: Install Ansible (via the official PPA) and git
+      become: true
+      block:
+        - name: Install prerequisites
+          ansible.builtin.apt:
+            name:
+              - software-properties-common
+              - git
+            state: present
+            update_cache: true
+
+        - name: Add the Ansible PPA (gives a current ansible-core)
+          ansible.builtin.apt_repository:
+            repo: ppa:ansible/ansible
+            state: present
+
+        - name: Install Ansible
+          ansible.builtin.apt:
+            name: ansible
+            state: present
+            update_cache: true
+
+    - name: Create ~/keys directory
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/keys"
+        state: directory
+        mode: '0700'
+
+    - name: Push the SSH private key so the control node can reach the workers
+      ansible.builtin.copy:
+        src: "{{ key_src }}"
+        dest: "{{ key_dest }}"
+        mode: '0600'
+
+    - name: Clone the course repo onto the control node
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dest }}"
+        version: master
+
+    - name: Install the Galaxy collections
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection install -r requirements.yml
+        chdir: "{{ repo_dest }}"
+      changed_when: true
+
+    - name: Drop the teaching inventory in place (it is gitignored)
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../inventories/dev/hosts.ini"
+        dest: "{{ repo_dest }}/inventories/dev/hosts.ini"
+        mode: '0644'
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: >
+          Control node ready. SSH in and run the course:
+          ssh -i {{ key_src }} {{ ansible_user }}@{{ ansible_host | default(inventory_hostname) }}
+          then: cd ansible-in-one-shot && ansible all -m ping
