@@ -8,6 +8,24 @@ terraform/terraform.tfstate.backup
 terraform/*.tfplan
 .terraform/
 
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Terraform variable files
+*.tfvars
+*.tfvars.json
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # SSH keys (private keys must never be committed)
 *.pem
 terra-key-ansible.pem
