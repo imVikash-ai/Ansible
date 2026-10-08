@@ -6,7 +6,7 @@ terraform.tfstate.backup
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/*.tfplan
-.terraform
+.terraform/
 
 # SSH keys (private keys must never be committed)
 *.pem
